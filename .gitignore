@@ -1,0 +1,33 @@
+# Виртуальное окружение
+venv/
+
+# Файлы IDE
+.idea/
+.vscode/
+
+# Компилированные файлы Python
+*.pyc
+*.pyo
+__pycache__/
+
+# Логи и временные файлы
+*.log
+*.tmp
+
+# Зависимости
+Pipfile
+Pipfile.lock
+poetry.lock
+
+# Docker
+*.dockerignore
+.env
+
+# Базы данных
+*.sqlite3
+*.db
+
+# Node.js
+node_modules/
+package-lock.json
+yarn.lock
