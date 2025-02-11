@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
+from typing import Optional
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -22,3 +23,7 @@ class UserResponse(UserBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class UserUpdate(BaseModel):  # ✅ Добавили для обновления данных
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
