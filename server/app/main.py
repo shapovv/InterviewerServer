@@ -1,9 +1,12 @@
 from fastapi import FastAPI
-from server.app.routers import users, tasks
-from server.app.utils.db.models import SessionLocal, User, Task, UserTask, Notification
+from server.app.routers.auth import auth_router
+from server.app.routers.users import user_router
 
 app = FastAPI()
 
-# Подключение маршрутов
-app.include_router(users.router, prefix="/users", tags=["users"])
-app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
+app.include_router(auth_router)
+app.include_router(user_router)
+
+@app.get("/")
+def root():
+    return {"message": "API is running!"}
