@@ -1,16 +1,19 @@
+import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from datetime import datetime, timezone
 
-# Базовый класс
+load_dotenv()
+
 Base = declarative_base()
 
-DATABASE_URL = "postgresql://interviewer:interviewer@localhost:5432/interviewerdatabase"
+DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Определение моделей
+
 class User(Base):
     __tablename__ = 'users'
 
@@ -24,6 +27,7 @@ class User(Base):
 
     tasks = relationship('UserTask', back_populates='user')
 
+
 class Task(Base):
     __tablename__ = 'tasks'
 
@@ -36,6 +40,7 @@ class Task(Base):
 
     user_tasks = relationship('UserTask', back_populates='task')
 
+
 class UserTask(Base):
     __tablename__ = 'user_tasks'
 
@@ -47,6 +52,7 @@ class UserTask(Base):
 
     user = relationship('User', back_populates='tasks')
     task = relationship('Task', back_populates='user_tasks')
+
 
 class Notification(Base):
     __tablename__ = 'notifications'
