@@ -1,9 +1,16 @@
 import os
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
+import uuid
 from datetime import datetime, timezone
+from dotenv import load_dotenv
+
+from sqlalchemy import (
+    create_engine, Column, String, Boolean, DateTime,
+    Date, ForeignKey, Text, Integer
+)
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import (
+    declarative_base, relationship, sessionmaker
+)
 
 load_dotenv()
 
@@ -13,52 +20,243 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-
+# ---------------------------------------------------------
+# Таблица пользователей
+# ---------------------------------------------------------
 class User(Base):
     __tablename__ = 'users'
 
-    id = Column(Integer, primary_key=True, index=True)
+    # Генерация UUID (используется postgresql.UUID + python-uuid)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     name = Column(String, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    date_of_birth = Column(Date, nullable=True)
+    gender = Column(String, nullable=True)  # 'male' / 'female' / 'other' / ...
+    grade = Column(String, nullable=True)   # 'junior' / 'middle' / 'senior' / ...
 
-    tasks = relationship('UserTask', back_populates='user')
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
+
+    # Связи (relationship)
+    chat_messages = relationship('ChatMessage', back_populates='user')
+    user_materials = relationship('UserMaterial', back_populates='user')
+    test_sessions = relationship('UserTestSession', back_populates='user')
+    user_questions = relationship('UserQuestion', back_populates='user')
 
 
-class Task(Base):
-    __tablename__ = 'tasks'
+# ---------------------------------------------------------
+# Логи переписки с ИИ
+# ---------------------------------------------------------
+class ChatMessage(Base):
+    __tablename__ = 'chat_messages'
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+
+    role = Column(String, nullable=False, default='user')  # 'user' или 'assistant'
+    message_text = Column(Text, nullable=False)
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    # Связь
+    user = relationship('User', back_populates='chat_messages')
+
+
+# ---------------------------------------------------------
+# Учебные материалы
+# ---------------------------------------------------------
+class Material(Base):
+    __tablename__ = 'materials'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     title = Column(String, nullable=False)
-    description = Column(String, nullable=True)
-    difficulty = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    subtitle = Column(String, nullable=True)
+    level = Column(String, nullable=True)   # 'junior' / 'middle' / 'senior' / ...
+    content = Column(Text, nullable=True)
 
-    user_tasks = relationship('UserTask', back_populates='task')
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
 
-
-class UserTask(Base):
-    __tablename__ = 'user_tasks'
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    task_id = Column(Integer, ForeignKey('tasks.id'), nullable=False)
-    status = Column(String, default='in_progress')
-    completed_at = Column(DateTime, nullable=True)
-
-    user = relationship('User', back_populates='tasks')
-    task = relationship('Task', back_populates='user_tasks')
+    # Связь (через промежуточную таблицу UserMaterial)
+    user_materials = relationship('UserMaterial', back_populates='material')
 
 
-class Notification(Base):
-    __tablename__ = 'notifications'
+# ---------------------------------------------------------
+# Связь "пользователь - материал"
+# ---------------------------------------------------------
+class UserMaterial(Base):
+    """
+    Хранит индивидуальные отметки по материалу (например, лайк).
+    """
+    __tablename__ = 'user_materials'
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    message = Column(String, nullable=False)
-    is_read = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    material_id = Column(UUID(as_uuid=True), ForeignKey('materials.id'), nullable=False)
+
+    is_liked = Column(Boolean, default=False)
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    # Связи
+    user = relationship('User', back_populates='user_materials')
+    material = relationship('Material', back_populates='user_materials')
+
+
+# ---------------------------------------------------------
+# Тесты
+# ---------------------------------------------------------
+class Test(Base):
+    __tablename__ = 'tests'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
+
+    # Связь (один тест -> много вопросов)
+    questions = relationship('Question', back_populates='test')
+
+
+# ---------------------------------------------------------
+# Вопросы
+# ---------------------------------------------------------
+class Question(Base):
+    __tablename__ = 'questions'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    test_id = Column(UUID(as_uuid=True), ForeignKey('tests.id'), nullable=False)
+
+    topic = Column(String, nullable=True)
+    question_text = Column(Text, nullable=False)
+    explanation = Column(Text, nullable=True)
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
+
+    # Связи
+    test = relationship('Test', back_populates='questions')
+    answers = relationship('Answer', back_populates='question')
+    user_questions = relationship('UserQuestion', back_populates='question')
+
+
+# ---------------------------------------------------------
+# Варианты ответов
+# ---------------------------------------------------------
+class Answer(Base):
+    __tablename__ = 'answers'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    question_id = Column(UUID(as_uuid=True), ForeignKey('questions.id'), nullable=False)
+
+    text = Column(String, nullable=False)
+    is_correct = Column(Boolean, default=False)
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
+
+    # Связь
+    question = relationship('Question', back_populates='answers')
+
+
+# ---------------------------------------------------------
+# Статистика: пользователь - вопрос
+# ---------------------------------------------------------
+class UserQuestion(Base):
+    """
+    Фиксирует, как пользователь ответил на конкретный вопрос.
+    """
+    __tablename__ = 'user_questions'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    question_id = Column(UUID(as_uuid=True), ForeignKey('questions.id'), nullable=False)
+
+    selected_answer_id = Column(UUID(as_uuid=True), ForeignKey('answers.id'), nullable=True)
+    is_correct = Column(Boolean, default=False)
+
+    answered_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    # Связи
+    user = relationship('User', back_populates='user_questions')
+    question = relationship('Question', back_populates='user_questions')
+    selected_answer = relationship('Answer')
+
+
+# ---------------------------------------------------------
+# Сессии прохождения теста
+# ---------------------------------------------------------
+class UserTestSession(Base):
+    __tablename__ = 'user_test_sessions'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    test_id = Column(UUID(as_uuid=True), ForeignKey('tests.id'), nullable=False)
+
+    start_time = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+    end_time = Column(DateTime, nullable=True)
+    total_time_seconds = Column(Integer, nullable=True)
+    is_completed = Column(Boolean, default=False)
+
+    # Связи
+    user = relationship('User', back_populates='test_sessions')
+    # Можно при необходимости связать тест напрямую:
+    # test = relationship('Test')
+
+
+# ---------------------------------------------------------
+# Функция для инициализации схемы (создаёт таблицы)
+# ---------------------------------------------------------
+def init_db():
+    Base.metadata.create_all(bind=engine)
+
