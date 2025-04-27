@@ -1,4 +1,3 @@
-import os
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from together import Together
@@ -7,6 +6,8 @@ from server.app.utils.db.models import ChatMessage
 from server.app.utils.db.setup import get_db
 from server.app.routers.auth import get_current_user
 from dotenv import load_dotenv
+from typing import List
+import os
 
 load_dotenv()
 
@@ -198,3 +199,43 @@ def tech_interview_chat(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка Together.ai: {str(e)}")
+
+
+@ai_router.post("/generate-test")
+def generate_test():
+    """
+    Генерирует JSON с 10 вопросами по программированию через LLM
+    """
+
+    try:
+        prompt = (
+            "Сгенерируй JSON-массив из 10 коротких вопросов по программированию для теста. "
+            "Структура для каждого вопроса должна строго соответствовать следующему:\n\n"
+            "{\n"
+            "  \"id\": \"уникальный id (например q1, q2...)\",\n"
+            "  \"topic\": \"Тема теста (например 'Основы программирования')\",\n"
+            "  \"questionText\": \"Текст вопроса\",\n"
+            "  \"answers\": [\n"
+            "    { \"text\": \"вариант ответа 1\", \"isCorrect\": true/false },\n"
+            "    { \"text\": \"вариант ответа 2\", \"isCorrect\": true/false }\n"
+            "  ],\n"
+            "  \"explanation\": \"Пояснение к правильному ответу\"\n"
+            "}\n\n"
+            "Только JSON! Без лишнего текста, без описаний. Тема теста: Основы Swift."
+        )
+
+        response = client.chat.completions.create(
+            model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+            messages=[
+                {"role": "system", "content": "Ты генератор тестов. Возвращаешь только валидный JSON без комментариев."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7  # можно варьировать креативность
+        )
+
+        content = response.choices[0].message.content
+
+        return content
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка генерации теста через Together.ai: {str(e)}")
