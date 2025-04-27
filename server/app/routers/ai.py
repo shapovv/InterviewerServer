@@ -37,7 +37,6 @@ def ask_together_ai(request: AIRequest):
         raise HTTPException(status_code=500, detail=f"Ошибка Together.ai: {str(e)}")
 
 
-
 @ai_router.post("/interview", response_model=InterviewResponse)
 def interview_chat(
     request: InterviewRequest,
@@ -93,6 +92,106 @@ def interview_chat(
             message_text=bot_reply
         ))
 
+        db.commit()
+
+        return InterviewResponse(question=bot_reply)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка Together.ai: {str(e)}")
+
+
+# --------------------------------
+# Новая ручка: HR интервью
+# --------------------------------
+@ai_router.post("/hr-interview", response_model=InterviewResponse)
+def hr_interview_chat(
+    request: InterviewRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    max_history: int = 15
+):
+    """ Чат с ИИ-HR для подготовки к soft skill интервью """
+
+    history = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.user_id == current_user.id)
+        .order_by(ChatMessage.created_at.desc())
+        .limit(max_history)
+        .all()
+    )
+
+    history_messages = [
+        {"role": msg.role, "content": msg.message_text}
+        for msg in reversed(history)
+    ]
+
+    if not history_messages or history_messages[0]["role"] != "system":
+        history_messages.insert(0, {
+            "role": "system",
+            "content": "Ты HR-менеджер. Проводишь интервью, задаёшь вопросы о навыках общения, мотивации и работе в команде."
+        })
+
+    history_messages.append({"role": "user", "content": request.answer})
+
+    try:
+        response = client.chat.completions.create(
+            model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+            messages=history_messages
+        )
+        bot_reply = response.choices[0].message.content
+
+        db.add(ChatMessage(user_id=current_user.id, role="user", message_text=request.answer))
+        db.add(ChatMessage(user_id=current_user.id, role="assistant", message_text=bot_reply))
+        db.commit()
+
+        return InterviewResponse(question=bot_reply)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка Together.ai: {str(e)}")
+
+
+# --------------------------------
+# Новая ручка: Техническое интервью
+# --------------------------------
+@ai_router.post("/tech-interview", response_model=InterviewResponse)
+def tech_interview_chat(
+    request: InterviewRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    max_history: int = 15
+):
+    """ Чат с ИИ для технического интервью: алгоритмы, структуры данных """
+
+    history = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.user_id == current_user.id)
+        .order_by(ChatMessage.created_at.desc())
+        .limit(max_history)
+        .all()
+    )
+
+    history_messages = [
+        {"role": msg.role, "content": msg.message_text}
+        for msg in reversed(history)
+    ]
+
+    if not history_messages or history_messages[0]["role"] != "system":
+        history_messages.insert(0, {
+            "role": "system",
+            "content": "Ты технический интервьюер. Задаешь вопросы по алгоритмам, структурам данных и оцениваешь логическое мышление кандидата."
+        })
+
+    history_messages.append({"role": "user", "content": request.answer})
+
+    try:
+        response = client.chat.completions.create(
+            model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+            messages=history_messages
+        )
+        bot_reply = response.choices[0].message.content
+
+        db.add(ChatMessage(user_id=current_user.id, role="user", message_text=request.answer))
+        db.add(ChatMessage(user_id=current_user.id, role="assistant", message_text=bot_reply))
         db.commit()
 
         return InterviewResponse(question=bot_reply)
