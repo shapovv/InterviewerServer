@@ -14,6 +14,14 @@ from server.app.schemas.user_stat import (
     UserQuestionsStatsResponse,
     TopicStats
 )
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from typing import List
+
+from server.app.utils.db.setup import get_db
+from server.app.utils.db.models import User, UserTestSession, UserQuestion
+from server.app.routers.auth import get_current_user
+from server.app.schemas.user_stat import TestSessionEntry, UserStatsForLeaderboard
 
 user_stats_router = APIRouter(tags=["User Stats"])
 
@@ -136,3 +144,61 @@ def get_user_questions_stats(
         total_wrong_answers=total_wrong,
         by_topic=by_topic_result
     )
+
+@user_stats_router.get("/users/me/sessions", response_model=List[TestSessionEntry])
+def get_user_test_sessions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    sessions = db.query(UserTestSession).filter(
+        UserTestSession.user_id == current_user.id,
+        UserTestSession.is_completed == True
+    ).all()
+
+    result = []
+    for session in sessions:
+        question_ids = [q.id for q in session.test.questions]
+        user_questions = db.query(UserQuestion).filter(
+            UserQuestion.user_id == current_user.id,
+            UserQuestion.question_id.in_(question_ids)
+        ).all()
+
+        correct = sum(1 for q in user_questions if q.is_correct)
+        incorrect = len(user_questions) - correct
+        result.append(TestSessionEntry(
+            correct_answers=correct,
+            incorrect_answers=incorrect,
+            duration=session.total_time_seconds or 0
+        ))
+
+    return result
+
+
+@user_stats_router.get("/leaderboard", response_model=List[UserStatsForLeaderboard])
+def get_leaderboard(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    users = db.query(User).all()
+    result = []
+
+    for user in users:
+        sessions = db.query(UserTestSession).filter(
+            UserTestSession.user_id == user.id,
+            UserTestSession.is_completed == True
+        ).all()
+
+        if not sessions:
+            continue
+
+        question_ids = db.query(UserQuestion).filter(UserQuestion.user_id == user.id).all()
+        correct = sum(1 for q in question_ids if q.is_correct)
+        total_time = sum(s.total_time_seconds or 0 for s in sessions)
+
+        result.append(UserStatsForLeaderboard(
+            name=user.name or user.email,
+            total_correct_answers=correct,
+            total_time_seconds=total_time
+        ))
+
+    return result

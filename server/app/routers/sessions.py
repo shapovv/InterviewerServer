@@ -161,7 +161,11 @@ def finish_test(
 
     # Ставим end_time, считаем total_time
     end_time = datetime.now(timezone.utc)
-    time_spent = int((end_time - session.start_time).total_seconds())
+    start_time = session.start_time
+    if start_time.tzinfo is None:
+        start_time = start_time.replace(tzinfo=timezone.utc)
+
+    time_spent = int((end_time - start_time).total_seconds())
     session.end_time = end_time
     session.total_time_seconds = time_spent
     session.is_completed = True

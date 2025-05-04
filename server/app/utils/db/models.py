@@ -35,15 +35,8 @@ class User(Base):
     gender = Column(String, nullable=True)  # 'male' / 'female' / 'other' / ...
     grade = Column(String, nullable=True)   # 'junior' / 'middle' / 'senior' / ...
 
-    created_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc)
-    )
-    updated_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc)
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
 
     # Связи (relationship)
     chat_messages = relationship('ChatMessage', back_populates='user')
@@ -64,10 +57,7 @@ class ChatMessage(Base):
     role = Column(String, nullable=False, default='user')  # 'user' или 'assistant'
     message_text = Column(Text, nullable=False)
 
-    created_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc)
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False)
 
     # Связь
     user = relationship('User', back_populates='chat_messages')
@@ -85,15 +75,8 @@ class Material(Base):
     level = Column(String, nullable=True)   # 'junior' / 'middle' / 'senior' / ...
     content = Column(Text, nullable=True)
 
-    created_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc)
-    )
-    updated_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc)
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
 
     # Связь (через промежуточную таблицу UserMaterial)
     user_materials = relationship('UserMaterial', back_populates='material')
@@ -114,10 +97,7 @@ class UserMaterial(Base):
 
     is_liked = Column(Boolean, default=False)
 
-    created_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc)
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False)
 
     # Связи
     user = relationship('User', back_populates='user_materials')
@@ -134,15 +114,8 @@ class Test(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
 
-    created_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc)
-    )
-    updated_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc)
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
 
     # Связь (один тест -> много вопросов)
     questions = relationship('Question', back_populates='test')
@@ -161,15 +134,8 @@ class Question(Base):
     question_text = Column(Text, nullable=False)
     explanation = Column(Text, nullable=True)
 
-    created_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc)
-    )
-    updated_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc)
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
 
     # Связи
     test = relationship('Test', back_populates='questions')
@@ -189,15 +155,8 @@ class Answer(Base):
     text = Column(String, nullable=False)
     is_correct = Column(Boolean, default=False)
 
-    created_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc)
-    )
-    updated_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc)
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
 
     # Связь
     question = relationship('Question', back_populates='answers')
@@ -220,7 +179,7 @@ class UserQuestion(Base):
     is_correct = Column(Boolean, default=False)
 
     answered_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
     )
 
@@ -240,13 +199,11 @@ class UserTestSession(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
     test_id = Column(UUID(as_uuid=True), ForeignKey('tests.id'), nullable=False)
 
-    start_time = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc)
-    )
-    end_time = Column(DateTime, nullable=True)
-    total_time_seconds = Column(Integer, nullable=True)
-    is_completed = Column(Boolean, default=False)
+    start_time = Column(DateTime(timezone=True), nullable=False)
+    end_time = Column(DateTime(timezone=True), nullable=True)  # nullable=True — чтобы избежать ошибки при миграции
+
+    total_time_seconds = Column(Integer, nullable=True)  # исправлено
+    is_completed = Column(Boolean, default=False, nullable=False)  # исправлено
 
     # Связи
     user = relationship('User', back_populates='test_sessions')

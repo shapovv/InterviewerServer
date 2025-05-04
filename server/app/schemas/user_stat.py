@@ -1,6 +1,18 @@
 from pydantic import BaseModel
 from typing import Optional, Dict
 from uuid import UUID
+from pydantic import BaseModel
+from typing import List
+
+class TestSessionEntry(BaseModel):
+    correct_answers: int
+    incorrect_answers: int
+    duration: int  # seconds
+
+class UserStatsForLeaderboard(BaseModel):
+    name: str
+    total_correct_answers: int
+    total_time_seconds: int
 
 # 6.1. /users/me/tests/stats
 class UserTestsStatsResponse(BaseModel):
